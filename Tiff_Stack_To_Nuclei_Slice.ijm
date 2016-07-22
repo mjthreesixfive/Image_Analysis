@@ -1,0 +1,72 @@
+//***MUST RUN IN IMAGEJ, FIJI WILL SPLIT CHANNELS***
+
+//Macro to open a folder of tiff stacks
+//Wait for user to select and add multiple ROIs to the ROI manager
+//Save these ROIs as a .zip file, then crop each original image to a single nucleus
+//appending a number to the file name so that each nucleus is uniquely identifiable.
+
+setBatchMode(false); //batch mode on
+
+//get the directory where the images are located
+    sdir = getDirectory("choose source directory "); 
+
+//get the destination directory
+    ddir = getDirectory("choose destination directory "); 
+
+//get the roi directory
+    roidir = getDirectory("choose roi directory ");
+
+//get the list of files in the source directory
+    list = getFileList(sdir);
+
+//start a loop which opens each one and waits for user to click OK
+    for (i=0; i<list.length; i++){
+
+//close any open files
+    run("Close All");
+
+//get the file path
+    path = sdir+list[i];
+
+//Open the current file
+    print(path);
+    open(path);
+  
+//Open the ROI manager
+    run("ROI Manager...");
+
+//Wait for user to click when done
+    waitForUser("Select each ROI, press t to store and then click OK"); 
+
+//save the ROIs
+    roiManager("Save", roidir+list[i]+".zip");
+
+//Clear the list of ROIs
+    roiManager("reset");
+
+//set the rois to crop
+    roiset = roidir+list[i]+".zip";
+
+//open the image
+    open(path);
+ 
+//run ROI Manager
+    run("ROI Manager...");
+    roiManager("Open", roiset);
+
+//loop through the ROIs and save each frame
+    n = roiManager("count"); 
+    for (j=0; j<n; j++) { 
+    roiManager("select", j); 
+    nuc = list[i]+"_nuc_"+j+"_"; 
+    run("Duplicate...", "title = nuc duplicate range=1-3000"); 
+    run("Image Sequence... ", "format=TIFF name=["+nuc+"] start=0 digits=4 save=["+ddir+"]"); 
+    close(); 
+    } 
+//Clear the list of ROIs
+    roiManager("reset");
+    run("Close All"); 
+    }
+
+
+
