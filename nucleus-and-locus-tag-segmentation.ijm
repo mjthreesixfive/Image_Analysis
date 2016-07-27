@@ -1,3 +1,4 @@
+@@ -0,0 +1,145 @@
 //This macro takes a 3 channel tif cropped to contain just one nucleus
 //It loops through a folder containing many slices and detects several features
 //First it makes a binary image of the DNA in the Blue channel
@@ -69,7 +70,7 @@ for (i=0; i<list.length; i++){
 
 // save the blue channel mask
   		saveAs("Tiff", bdir+w2+"-M1.tif"); 
-
+        saveAs("Text", bdir+w2+"-M1.txt"); 
 //create a ROI from the binary image
 		run("Create Selection");	
 //measure selection
@@ -140,6 +141,3 @@ for (i=0; i<list.length; i++){
 }
 setBatchMode(false); //exit batch mode
 print(dir1+" analysis finished");
-
-
-
