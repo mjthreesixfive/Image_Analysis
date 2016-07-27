@@ -1,4 +1,3 @@
-@@ -0,0 +1,145 @@
 //This macro takes a 3 channel tif cropped to contain just one nucleus
 //It loops through a folder containing many slices and detects several features
 //First it makes a binary image of the DNA in the Blue channel
