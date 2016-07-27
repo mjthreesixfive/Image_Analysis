@@ -69,7 +69,7 @@ for (i=0; i<list.length; i++){
 
 // save the blue channel mask
   		saveAs("Tiff", bdir+w2+"-M1.tif"); 
-        saveAs("Text", bdir+w2+"-M1.txt"); 
+        saveAs("Text Image", bdir+w2+"-M1.txt"); 
 //create a ROI from the binary image
 		run("Create Selection");	
 //measure selection
