@@ -1,0 +1,89 @@
+#Locus Taq Quantification
+#1. Convert images - ImageJ Macro
+#2. Segment images - ImageJ Macro
+#3. Quantify selections - ImageJ Macro
+#4. Import quantifications into R
+#5. Quality control and filtering of images and measurements
+#6. Summary statistics  and plots of dataset
+#7. Detailed plot of a selected nucleus
+#8. Final comparative plots and statistics.
+
+#1. Convert images - ImageJ Macro
+#2. Segment images - ImageJ Macro
+#3. Quantify selections - ImageJ Macro
+
+#4. Import quantifications into R
+
+#5. Quality control and filtering of images and measurements
+#6. Summary statistics  and plots of dataset
+#7. Detailed plot of a selected nucleus
+#8. Final comparative plots and statistics.
+
+#set working directory
+setwd("~/Desktop/Test_270716-v2/Input")
+
+#Main data table
+data = data.frame(matrix(NA,ncol=7))
+colnames(data) = c('NucID','Chan','X','Y','Z','Centroid','Median')
+
+library(reshape2)
+#get directory with edges in
+blue.edge = dir('Blue-Edge',full.names=T)
+
+nucID = unique(substr(sapply(strsplit(blue.edge,split = 'nuc_'),'[[',2),1,1))
+
+#loop through all the blue edge files and save the subset of pixels
+blue.edge.m = matrix(NA,ncol=4)
+colnames(blue.edge.m) = c('X','Y','value','Z')
+
+for(i in 1:length(blue.edge)){
+blue.edge.1 = read.table(blue.edge[i])
+blue.edge.m2 = melt(as.matrix(blue.edge.1))
+blue.edge.m2[,2] = as.numeric(sub('V','',as.character(blue.edge.m2[,2])))
+blue.edge.m2 = blue.edge.m2[blue.edge.m2[,'value'] > 0,]
+blue.edge.m2 = cbind(blue.edge.m2,'Z' = rep(i, dim(blue.edge.m2)[1]))        
+colnames(blue.edge.m2) = c('X','Y','value','Z')
+blue.edge.m = rbind(blue.edge.m,blue.edge.m2)        
+}
+
+median.z = median(blue.edge.m[,'Z'],na.rm=T)
+
+blue.data = cbind(NucID = rep(nucID,dim(blue.edge.m)[1]),
+                  Chan = rep('blue',dim(blue.edge.m)[1]),
+                  X = blue.edge.m[,1],
+                  Y = blue.edge.m[,1],
+                  Z = blue.edge.m[,1],
+                  Centroid = rep(FALSE,dim(blue.edge.m)[1]),
+                  Median = blue.edge.m[,'Z'] == median.z)
+
+data = rbind(data,blue.data)
+
+
+#library(rgl)
+#open3d()
+#plot3d(x = blue.edge.m[,'X'],y = blue.edge.m[,'Y'],z = blue.edge.m[,'Z'],pch = '.')
+
+#get directory with results in
+blue.results = dir('Results',full.names=T)
+
+blue.df = read.csv(blue.results)
+
+blue.cent = blue.df[,c('X','Y')]
+blue.cent = cbind(blue.cent,Centroid = rep(TRUE,dim(blue.cent)[1]))
+
+sliceid = sapply(strsplit(as.character(blue.df$Label),split = '.tif'),'[[',2)
+sliceid = as.numeric(sapply(strsplit(sliceid,split ='_'),'[[',4))
+
+blue.cent = cbind(NucID = rep(nucID,dim(blue.cent)[1]),
+                  Chan = rep('blue',dim(blue.cent)[1]),
+                  blue.cent,
+                  Z = sliceid)
+
+blue.cent = blue.cent[,c(1,2,3,4,6,5)]
+blue.median = blue.cent[,'Z'] == median.z
+blue.cent = cbind(blue.cent, Median = blue.median)
+
+data = rbind(data,blue.cent)
+
+
+
