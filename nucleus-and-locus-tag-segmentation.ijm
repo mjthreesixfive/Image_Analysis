@@ -69,7 +69,7 @@ for (i=0; i<list.length; i++){
 
 // save the blue channel mask
   		saveAs("Tiff", bdir+w2+"-M1.tif"); 
-
+        saveAs("Text Image", bdir+w2+"-M1.txt"); 
 //create a ROI from the binary image
 		run("Create Selection");	
 //measure selection
@@ -96,6 +96,7 @@ for (i=0; i<list.length; i++){
  
  //Save the subtracted red channel       
         saveAs("Tiff", rdir+w2+"-Red-S.tif");	//save the flattened RGB stack with the overlay
+		saveAs("Text Image", rdir+w2+"-Red.txt"); 
 		run("Close All");
 
 //Open the green channel and detect it - perhaps this should be modified to use the max entropy threshold		
@@ -140,6 +141,3 @@ for (i=0; i<list.length; i++){
 }
 setBatchMode(false); //exit batch mode
 print(dir1+" analysis finished");
-
-
-
