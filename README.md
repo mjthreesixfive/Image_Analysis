@@ -9,7 +9,7 @@ images are temporarily stored here.
 This folder contains ImageJ macros to crop tiff stack files to cropped slices of 
 individual nuclei, images are temporarily stored here.
 
-3.Segment
+3. Segment
 This folder contains an ImageJ macro to split 3 color image slices to single channel
 and segment it, measuring the area and pixel intensities. These measurements are
 output to a .csv file in 4.
