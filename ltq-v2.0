@@ -1,0 +1,228 @@
+//Create directories
+    
+    //Set batch mode on
+        setBatchMode(true); //batch mode on
+        verbose = false;	//set to true to turn on extra printing
+
+    //Set the source directory
+        sdir = getDirectory("Choose Source Directory ");
+    //Set the input file directory
+        inputdir = sdir+"input/"
+    //Create output directories for each of the outputs
+        
+        //Blue
+        File.makeDirectory(sdir+"Blue");
+        File.makeDirectory(sdir+"Blue-Edge");
+        File.makeDirectory(sdir+"Blue-Mask");
+        File.makeDirectory(sdir+"Blue-Overlay");
+        
+        //Red
+        File.makeDirectory(sdir+"Red");
+        File.makeDirectory(sdir+"Red-Edge");
+        File.makeDirectory(sdir+"Red-Colocalised-Blue");
+        File.makeDirectory(sdir+"Red-Mask");
+        File.makeDirectory(sdir+"Red-Overlay");
+
+        //Green
+        File.makeDirectory(sdir+"Green");
+        File.makeDirectory(sdir+"Green-Edge");
+        File.makeDirectory(sdir+"Green-Mask");
+        File.makeDirectory(sdir+"Green-Overlay");
+
+        //Results
+        File.makeDirectory(sdir+"Results");
+        File.makeDirectory(sdir+"RGB-Mask");
+
+    //Set the measurements wanted
+        run("Set Measurements...", "area mean min centroid center perimeter bounding shape median area_fraction display redirect=None decimal=3");
+
+//Split Channels
+    
+    //Start the loop with the file names
+        list = getFileList(inputdir);
+        for (i=0; i<list.length; i++){
+	    if (endsWith(list[i], "tif")){
+		if(verbose) print(list[i]);
+		thefile = inputdir+list[i];
+		if(verbose) print("analysing "+thefile);
+		open(thefile);
+		if(verbose) print("Opened file");
+        run("Make Composite");
+		run("Split Channels");
+		print("Split channels");
+
+    //Store the names of the three channels
+        w0 = "C1-"+list[i];
+        w1 = "C2-"+list[i];
+        w2 = "C3-"+list[i];
+
+    //Save the red and green channels for later        
+        selectWindow(w1);
+        saveAs("Tiff", sdir+"/Green/"+w1+"-G.tif"); // save the green channel
+		close;
+        
+        selectWindow(w0);
+        saveAs("Tiff", sdir+"/Red/"+w0+"-R.tif"); // save the red channel
+		close;
+
+
+    //Duplicate the blue channel
+        run("Duplicate...", "title="+w2+"-C3 duplicate channels=3");	//duplicate channel 3 (blue from RGB)
+        //Save the blue channel as tif
+  		saveAs("Tiff", sdir+"/Blue/"+w2+".tif"); 
+        if(verbose) print("Duplicated DNA channel");
+        setOption("BlackBackground", true);
+
+    //Blue - binary mask
+        //add gaussian blur
+        run("Gaussian Blur...", "sigma=2.5 scaled");
+        
+        //binarise using Kapur's maximum entropy threshold
+		setAutoThreshold("MaxEntropy dark");
+		run("Convert to Mask");
+		run("Fill Holes");
+		if(verbose) print("Holes filled");
+        
+        //Save the blue channel mask as tif
+  		saveAs("Tiff", sdir+"/Blue-Mask/"+w2+"Blue-Mask.tif"); 
+        
+        //create a ROI from the binary image
+		run("Create Selection");	
+        
+    
+    //Blue - measure
+        //measure selection
+        run("Measure");
+        
+    //Blue - overlay
+        //add an overlay of the selection for inspection later
+		selectImage(w2);	
+		run("Restore Selection");
+		Overlay.addSelection("yellow");
+		run("Flatten");
+		run("Select None");	//remove the ROI
+
+    //Save the blue overlay as a flattened RGB image
+		saveAs("Tiff", sdir+"/Blue-Overlay/"+w2+"-Blue-Overlay.tif");	
+		if(verbose) print("Detection saved");
+		run("Close All");	
+
+        //Blue - edge
+        
+        //Blue open mask
+        open(sdir+"/Blue-Mask/"+w2+"Blue-Mask.tif");
+        
+        //Find edges
+        run("Find Edges");
+        
+        //Save the blue channel mask as text
+  		saveAs("Text Image", sdir+"/Blue-Edge/"+w2+"-Edge.txt"); 
+    
+        run("Close All"); 
+           
+//Red - binary mask
+        //Open the mask saved from earlier and subtract it from the red channel
+		    open(sdir+"/Blue-Mask/"+w2+"Blue-Mask.tif");
+            open(sdir+"/Red/"+w0+"-R.tif");            
+            run("Invert");
+            w3 = getList("image.titles");
+            imageCalculator("Subtract create", w3[0] , w3[1]);
+ 
+        //Save the subtracted red channel       
+        saveAs("Tiff", sdir+"/Red-Colocalised-Blue/"+w2+"-Red-S.tif");	//save the flattened RGB stack with the overlay
+		
+		run("Close All");
+
+//detect the band in the red channel
+        open(sdir+"/Red-Colocalised-Blue/"+w2+"-Red-S.tif");
+		run("Subtract...", "value=50 stack");
+        run("Make Binary", "method=Default background=Default calculate black");
+        run("Fill Holes", "stack");
+        run("Despeckle", "stack");
+        run("Gaussian Blur...", "sigma=0.2 scaled stack");
+        run("Convert to Mask", "method=Default background=Default calculate black");
+        
+        //Save the red channel mask as tif
+  		saveAs("Tiff", sdir+"/Red-Mask/"+w2+"Red-Mask.tif"); 
+        
+        run("Create Selection");
+        //Red - measure	
+        run("Measure");
+        
+        //Red - overlay
+        open(sdir+"/Red-Colocalised-Blue/"+w2+"-Red-S.tif");
+		run("Restore Selection");
+		Overlay.addSelection("yellow");
+		run("Flatten");
+		run("Select None");	//remove the ROI
+		saveAs("Tiff", sdir+"/Red-Overlay/"+w2+"-Red-Overlay.tif");	//save the flattened RGB stack with the overlay
+		
+		if(verbose) print("Detection saved");
+
+        //Save Red edge
+		open(sdir+"/Red-Mask/"+w2+"Red-Mask.tif");
+		run("Find Edges");
+        saveAs("Text Image", sdir+"/Red-Edge/"+w2+"-Red-Edge.txt"); 
+		
+         run("Close All");	
+       //Green - binary mask
+    //Open the green channel and detect it - perhaps this should be modified to use the max entropy threshold		
+		
+		open(sdir+"/Green/"+w1+"-G.tif");
+        run("Gaussian Blur...", "sigma=0.25 scaled stack");
+        run("Make Binary", "method=Default background=Default calculate black");
+        
+        //Green - add blue channel
+        open(sdir+"/Blue-Mask/"+w2+"Blue-Mask.tif");
+		
+		w4 = getList("image.titles");
+        imageCalculator("Add create", w4[0] , w4[1]);
+        run("Fill Holes", "stack");
+        run("Convert to Mask", "method=Default background=Default calculate black");
+        saveAs("Tiff", sdir+"/Green-Mask/"+w1+"Green-Mask.tif"); 
+        
+        //Green - measure
+        run("Create Selection");
+        run("Measure");
+    
+        //Green - overlay
+        open(sdir+"/Green/"+w1+"-G.tif");
+		run("Restore Selection");
+		Overlay.addSelection("green");
+		run("Flatten");
+		run("Select None");	//remove the ROI
+		saveAs("Tiff", sdir+"/Green-Overlay/"+w1+"-Green-Overlay.tif");	//save the flattened RGB stack with the overlay
+		if(verbose) print("Detection saved");		
+		
+		open(sdir+"/Green-Mask/"+w1+"Green-Mask.tif"); 
+		run("Find Edges");
+		saveAs("Text Image", sdir+"/Green-Edge/"+w1+"-Green-Edge.txt"); 
+		
+		run("Close All");
+	//crashesh - think its just the filenames,	
+	open(sdir+"/Green-Mask/"+w1+"Green-Mask.tif"); 
+	//green = getTitle;
+	run("Subtract...", "value=150");
+	open(sdir+"/Blue-Mask/"+w2+"Blue-Mask.tif"); 
+	//blue = getTitle;
+	run("Subtract...", "value=100");
+	open(sdir+"/Red-Mask/"+w2+"Red-Mask.tif"); 
+	//red = getTitle;
+	w5 = getList("image.titles");
+    red = w5[0];
+    green = w5[1];
+    blue = w5[2];
+    run("Merge Channels...", "c1="+red+" c2="+green+" c3="+blue+" create");
+    run("Stack to RGB");
+    saveAs("Tiff", sdir+w1+"RGB-Mask");	//save the flattened RGB stack with the overlay
+	}
+      
+      //Save results
+      resultspath = sdir+"/Results/"+"Results_"+"01-08-16"+".csv";
+	  saveAs("Results", resultspath);
+	
+		  run("Close All");	 
+	  
+}
+setBatchMode(false); //exit batch mode
+print(sdir+" analysis finished");
