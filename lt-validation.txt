@@ -1,0 +1,88 @@
+setBatchMode(false);
+verbose = false;
+
+//Set the source and directories
+
+    sdir = getDirectory("Choose Source Directory ");
+    inputdir = sdir+"Input/"
+    File.makeDirectory(inputdir);
+
+//Create directories for the results    
+    resultsdir = sdir+"Results/"
+    //File.makeDirectory(resultsdir);
+    outputdir =  sdir+"Output/"
+    //File.makeDirectory(outputdir);
+    DNAmaskdir =  sdir+"DNAmask/"
+    //File.makeDirectory(DNAmaskdir);
+        edgemaskdir =  sdir+"edgemask/"
+    //File.makeDirectory(edgemaskdir);
+         edgemasktifdir =  sdir+"edgemasktif/"
+    //File.makeDirectory(edgemasktifdir);
+         iminfodir =  sdir+"iminfo/"
+    //File.makeDirectory(iminfodir);
+     ltdir =  sdir+"LocusTagResults/";
+    File.makeDirectory(ltdir);
+    ltoutputdir =  sdir+"LocusTagOutput/";
+   // File.makeDirectory(ltoutputdir);
+    detoutputdir =  sdir+"DetectionOutput/";
+   // File.makeDirectory(detoutputdir);
+    
+  
+//Get the list of files in the input directory
+    list = getFileList(inputdir);
+    list2 = getFileList(ltoutputdir);
+//Open each file one at a time if it is a .tif
+    for (i=0; i<list.length; i++){
+        if (endsWith(list[i], "tif")){
+        print(list[i]);
+        }
+        }
+
+    for (i=0; i<list.length; i++){
+        if (endsWith(list[i], "tif")){
+        
+        file = inputdir+list[i];
+        file2 = ltoutputdir+list2[i];
+
+//Get the filename stem without the extension        
+        stems = split(list[i],".");
+        stem = stems[0];
+   
+//generate the filepath
+        path = inputdir+stem+".tif";
+        path2 = ltoutputdir+stem+"-LT-OL.tif";
+
+//open the file
+   //     open(path);
+     //   open(path2);
+//run("Bio-Formats Importer", "open=path autoscale color_mode=Default view=Hyperstack stack_order=XYCZT");
+open(path);
+//split the channels
+        run("Split Channels");
+
+//Store red channel name
+        w0 = "C1-"+stem+".tif";
+selectWindow(w0);
+run("Grays");
+//Store green channel name
+        w1 = "C2-"+stem+".tif";
+selectWindow(w1);
+run("Grays");
+//Store blue channel name
+        w2 = "C3-"+stem+".tif";
+selectWindow(w2);
+run("Grays");
+run("Merge Channels...", "red="+w0+" green="+w1+" blue="+w2+" create");
+
+run("Bio-Formats Importer", "open=path2 autoscale color_mode=Composite view=Hyperstack stack_order=XYCZT");
+ 
+ waitForUser("Click OK");
+
+run("Close All");
+
+
+}
+}
+
+setBatchMode(false);
+run("Quit");
