@@ -1,0 +1,238 @@
+setBatchMode(true);
+verbose = false;
+
+//Set the source and directories
+
+   sdir = getDirectory("Choose Source Directory ");
+
+    print(sdir);
+    inputdir = sdir+"Input/"
+    File.makeDirectory(inputdir);
+
+//Create directories for the results    
+    resultsdir = sdir+"Results/"
+    File.makeDirectory(resultsdir);
+    outputdir =  sdir+"Output/"
+    File.makeDirectory(outputdir);
+   DNAmaskdir =  sdir+"DNAmask/"
+    File.makeDirectory(DNAmaskdir);
+    DNAshapedir =  sdir+"DNAshape/"
+    File.makeDirectory(DNAshapedir);
+        edgemaskdir =  sdir+"edgemask/"
+    File.makeDirectory(edgemaskdir);
+         edgemasktifdir =  sdir+"edgemasktif/"
+    File.makeDirectory(edgemasktifdir);
+         iminfodir =  sdir+"iminfo/"
+    File.makeDirectory(iminfodir);
+ 
+//Set the output directories for the locus tag channel
+    ltdir =  sdir+"LocusTagResults/";
+    File.makeDirectory(ltdir);
+    ltoutputdir =  sdir+"LocusTagOutput/";
+    File.makeDirectory(ltoutputdir);
+    detoutputdir =  sdir+"DetectionOutput/";
+    File.makeDirectory(detoutputdir);
+
+
+//Get the list of files in the input directory
+    list = getFileList(inputdir);
+
+//Open each file one at a time if it is a .tif
+    for (i=0; i<list.length; i++){
+        if (endsWith(list[i], "tif")){
+        
+        file = inputdir+list[i];
+
+//Get the filename stem without the extension        
+        stems = split(list[i],".");
+        stem = stems[0];
+   
+//generate the filepath
+        path = inputdir+stem+".tif";
+
+//open the file
+        open(path);
+
+run("Show Info...");
+selectWindow("Info for "+stem+".tif");
+saveAs("Text", iminfodir+stem+".txt");
+selectWindow("Info for "+stem+".tif");
+run("Close");
+
+//Neuroblast pipeline
+//1.Split channels and store names
+
+//split the channels
+        run("Split Channels");
+
+print(path);
+
+//Store DNA channel name
+selectWindow("C1-"+stem+".tif");
+rename("DNA");
+run("Blue");
+
+selectWindow("C2-"+stem+".tif");
+rename("Lam");
+run("Yellow");
+
+selectWindow("C3-"+stem+".tif");
+rename("LocusTag");
+run("Green");
+
+selectWindow("C4-"+stem+".tif");
+rename("Dpn");
+run("Red");
+
+//waitForUser("Click OK");
+
+
+
+//2. Dpn median 10px
+run("Duplicate...", "title=Dpn-clean duplicate stack");
+selectWindow("Dpn");
+run("Multiply...", "value=2 stack");
+run("Median...", "radius=10 stack");
+
+//waitForUser("Click OK");
+
+//3. Hoechst AND Dpn
+imageCalculator("AND create stack", "DNA","Dpn");
+rename("DNA-Dpn");
+
+//4. Lam AND Dpn > Gauss 0.2 micron
+selectWindow("Dpn");
+
+run("Duplicate...", "title=DpnGauss duplicate stack");
+
+run("Gaussian Blur...", "sigma=0.2 scaled stack");
+
+selectWindow("Lam");
+run("Duplicate...", "title=LamGauss duplicate stack");
+run("Gaussian Blur...", "sigma=0.2 scaled stack");
+
+
+imageCalculator("AND create stack", "LamGauss","DpnGauss");
+rename("LamGauss-DpnGauss");
+
+imageCalculator("Add create stack", "LamGauss-DpnGauss","DpnGauss");
+rename("LamGauss-DpnGauss2");
+
+//5. Add all three together via 2x image calculator
+imageCalculator("Add create stack", "DNA-Dpn","LamGauss-DpnGauss2");
+rename("4chan");
+run("Gaussian Blur...", "sigma=0.2 scaled stack");
+
+//6. 3D simple segmentation with size filter 2000 finds just one object.
+print("Segmenting Neuroblast Nucleus Volume");
+run("3D Simple Segmentation", "low_threshold=70 min_size=2000 max_size=-1");
+selectWindow("Seg");
+run("8-bit");
+setThreshold(1, 255);
+run("Fill Holes", "stack");
+
+//7. Invert and subtract from the other channels to crop the nuclear volume.
+run("Duplicate...", "title=Seg2 duplicate");
+run("Invert", "stack");
+imageCalculator("Subtract create stack", "DNA","Seg2");
+imageCalculator("Subtract create stack", "Lam","Seg");
+imageCalculator("Subtract create stack", "LocusTag","Seg2");
+rename("LocusTagMasked");
+imageCalculator("Subtract create stack", "Dpn-clean","Seg2");
+
+
+selectWindow("Seg");
+rename("Edge");
+run("Find Edges", "stack");
+
+run("Merge Channels...", "red=Dpn-clean green=LocusTag blue=Edge create keep ignore");
+saveAs("Tiff", outputdir+stem+"-NUC-OL.tif");
+run("Merge Channels...", "red=Dpn-clean green=Lam blue=Edge create keep ignore");
+run("Merge Channels...", "red=Dpn-clean green=DNA blue=Edge create keep ignore");
+run("Merge Channels...", "red=Lam green=DNA blue=Edge create keep ignore");
+run("Merge Channels...", "red=Lam green=LocusTag blue=Edge create keep ignore");
+open(path);
+print(stem);
+run("Split Channels");
+selectWindow("C1-"+stem+".tif");
+run("Grays");
+selectWindow("C3-"+stem+".tif");
+run("Grays");
+selectWindow("C4-"+stem+".tif");
+run("Grays");
+run("Merge Channels...", "red=C4-"+stem+".tif green=C3-"+stem+".tif blue=C1-"+stem+".tif create keep ignore");
+
+
+//waitForUser("Click OK");
+selectWindow("LocusTagMasked");
+run("Gaussian Blur...", "sigma=0.1 scaled stack");
+run("3D Simple Segmentation", "low_threshold=55 min_size=15 max_size=-1");
+//waitForUser("Click OK");
+selectWindow("Seg");
+//waitForUser("Click OK");
+rename("Seg3");
+run("8-bit");
+
+setThreshold(1, 255);
+run("Convert to Mask", "  black");
+run("Invert", "stack");
+imageCalculator("Subtract create stack", "LocusTag","Seg3");
+
+run("3D OC Options", "volume surface nb_of_obj._voxels nb_of_surf._voxels integrated_density mean_gray_value std_dev_gray_value median_gray_value minimum_gray_value maximum_gray_value centroid mean_distance_to_surface std_dev_distance_to_surface median_distance_to_surface centre_of_mass bounding_box dots_size=5 font_size=10 show_numbers white_numbers store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=none");
+print("Detecting Locus Tag Signal");
+run("3D Objects Counter", "threshold=45 min.=10 max.=8912896 exclude_objects_on_edges objects surfaces centroids centres_of_masses statistics summary");
+
+selectWindow("Objects map of Result of LocusTag");
+run("Brightness/Contrast...");
+run("8-bit");
+rename("cent");
+//waitForUser("Click OK");
+
+run("Merge Channels...", "red=cent green=C3-"+stem+".tif blue=Edge create keep ignore");
+//waitForUser("Click OK");
+saveAs("Tiff", ltoutputdir+stem+"-NBLT-OL.tif");
+
+
+//Start Operations on different channels
+
+//Run 3D segmentation and invert the result
+//print("Segmenting Genome Volume");
+
+//run("3D Simple Segmentation", "low_threshold=110 min_size=1000 max_size=-1");
+//run("3D OC Options", "volume surface nb_of_obj._voxels nb_of_surf._voxels centroid bounding_box dots_size=0 font_size=0 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=none");
+
+//print("Detecting Genome Volume");
+//run("3D Objects Counter", "threshold=1 slice=10 min.=500 max.=8912896 exclude_objects_on_edges objects surfaces centroids centres_of_masses statistics summary");
+//run("Brightness/Contrast...");
+
+//selectWindow("Objects map of Seg");
+
+//rename(stem+"-shape");
+//waitForUser("Click OK");
+//run("3D Shape Measure");
+//saveAs("Results", DNAshapedir+stem+"-DNAshape.csv");
+//run("Clear Results");
+//selectWindow(stem+"-shape");
+//run("Find Edges", "stack");
+//setThreshold(1, 255);
+//run("Convert to Mask", "method=Default background=Default black");
+//saveAs("Tiff", edgemasktifdir+stem+"-edge.tif");
+//run("Close");
+
+// //waitForUser("Click OK");
+//Merge into an overlay and save
+//run("Merge Channels...", "red="+stem+"-edge.tif green=centroids blue="+w2+" create keep ignore");
+//saveAs("Tiff", outputdir+stem+"-Nuc-OL.tif");  
+//run("Close All");
+
+//open(DNAmaskdir+stem+"-mask.tif");
+//run("Invert", "stack");
+//open(path);
+
+run("Close All");
+
+}
+}
+
+setBatchMode(false);
+run("Quit");
